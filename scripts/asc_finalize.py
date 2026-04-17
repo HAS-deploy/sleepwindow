@@ -44,17 +44,25 @@ def req(method, path, body=None, params=None):
 
 
 def wait_for_build(timeout=1800, interval=30):
-    """Poll for the most recent processed build."""
+    """Poll for a processed build. Picks newest by uploadedDate attribute."""
     start = time.time()
     while time.time() - start < timeout:
-        resp = req("GET", f"/v1/apps/{APP_ID}/builds",
-                   params={"sort": "-uploadedDate", "limit": 5})
-        for b in resp.get("data", []):
+        resp = req("GET", f"/v1/apps/{APP_ID}/builds", params={"limit": 20})
+        builds = sorted(
+            resp.get("data", []),
+            key=lambda b: b["attributes"].get("uploadedDate") or "",
+            reverse=True,
+        )
+        if not builds:
+            print("  no builds yet")
+        for b in builds[:3]:
             state = b["attributes"]["processingState"]
             version = b["attributes"]["version"]
-            print(f"  build {b['id']} version={version} state={state}")
-            if state == "VALID":
-                return b
+            uploaded = b["attributes"].get("uploadedDate", "")
+            print(f"  build {b['id']} v={version} state={state} uploaded={uploaded}")
+        newest = builds[0] if builds else None
+        if newest and newest["attributes"]["processingState"] == "VALID":
+            return newest
         time.sleep(interval)
     raise RuntimeError("timed out waiting for build to process")
 
@@ -133,12 +141,12 @@ if __name__ == "__main__":
     if action in ("all", "compliance"):
         if build is None:
             # use most recent
-            resp = req("GET", f"/v1/apps/{APP_ID}/builds", params={"sort": "-uploadedDate", "limit": 1})
+            resp = req("GET", f"/v1/apps/{APP_ID}/builds", params={"limit": 20})
             build = resp["data"][0]
         set_export_compliance(build["id"])
     if action in ("all", "link"):
         if build is None:
-            resp = req("GET", f"/v1/apps/{APP_ID}/builds", params={"sort": "-uploadedDate", "limit": 1})
+            resp = req("GET", f"/v1/apps/{APP_ID}/builds", params={"limit": 20})
             build = resp["data"][0]
         link_build_to_version(build["id"])
     if action in ("all", "category"):
