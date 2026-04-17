@@ -53,5 +53,14 @@ struct RootView: View {
             PaywallView(triggeringFeature: feature)
                 .environmentObject(purchases)
         }
+        .onAppear {
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "SLEEPWINDOW_SHOW_PAYWALL") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                    paywallTrigger = .napPlanner
+                }
+            }
+            #endif
+        }
     }
 }

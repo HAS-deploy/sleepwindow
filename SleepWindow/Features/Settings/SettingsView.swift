@@ -163,8 +163,8 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         Section {
-            Link("Privacy policy", destination: URL(string: "https://tonym1979.github.io/sleepwindow/privacy.html")!)
-            Link("Support", destination: URL(string: "https://tonym1979.github.io/sleepwindow/support.html")!)
+            Link("Privacy policy", destination: URL(string: "https://has-deploy.github.io/sleepwindow/privacy.html")!)
+            Link("Support", destination: URL(string: "https://has-deploy.github.io/sleepwindow/support.html")!)
             LabeledContent("Version", value: Bundle.main.marketingVersion)
         } header: {
             Text("About")

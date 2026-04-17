@@ -87,6 +87,42 @@ def ensure_iap_localization(iap_id):
         raise
 
 
+def upload_iap_review_screenshot(iap_id, path):
+    path = pathlib.Path(path)
+    data = path.read_bytes()
+    print(f"  uploading IAP review screenshot {path.name} ({len(data)} bytes) ...")
+    resp = request("POST", "/v1/inAppPurchaseAppStoreReviewScreenshots", {
+        "data": {
+            "type": "inAppPurchaseAppStoreReviewScreenshots",
+            "attributes": {"fileName": path.name, "fileSize": len(data)},
+            "relationships": {
+                "inAppPurchaseV2": {"data": {"type": "inAppPurchases", "id": iap_id}},
+            },
+        }
+    })
+    shot_id = resp["data"]["id"]
+    ops = resp["data"]["attributes"]["uploadOperations"]
+    upload_asset(ops, data)
+    request("PATCH", f"/v1/inAppPurchaseAppStoreReviewScreenshots/{shot_id}", {
+        "data": {
+            "type": "inAppPurchaseAppStoreReviewScreenshots",
+            "id": shot_id,
+            "attributes": {"uploaded": True, "sourceFileChecksum": None},
+        }
+    })
+    print(f"    -> {shot_id}")
+
+
+def cmd_iap_screenshot(path="docs/screenshots/paywall.png"):
+    existing = request("GET", f"/v1/apps/{APP_ID}/inAppPurchasesV2",
+                       params={"filter[productId]": LIFETIME_PRODUCT_ID})
+    if not existing.get("data"):
+        print("IAP not found; run 'iap' first")
+        return
+    iap_id = existing["data"][0]["id"]
+    upload_iap_review_screenshot(iap_id, path)
+
+
 def ensure_iap_price(iap_id, customer_price="7.99", territory="USA"):
     # Price point lookup uses v2 path for v2-created IAPs; schema here is fiddly
     # across Apple API versions so we fetch via the v2 per-product price points.
@@ -279,9 +315,9 @@ def cmd_metadata():
             "Results are estimates for planning sleep timing. SleepWindow is not a medical device and does not diagnose, treat, or monitor any condition."
         ),
         "keywords": "sleep,bedtime,nap,wake,alarm,sleep cycle,caffeine,reminder,bedtime planner,sleep schedule",
-        "marketingUrl": "https://tonym1979.github.io/sleepwindow/",
+        "marketingUrl": "https://has-deploy.github.io/sleepwindow/",
         "promotionalText": "Plan bedtime, wake time, and naps around 90-minute sleep cycles. One-time purchase unlocks everything — no subscriptions.",
-        "supportUrl": "https://tonym1979.github.io/sleepwindow/support.html",
+        "supportUrl": "https://has-deploy.github.io/sleepwindow/support.html",
     }
 
     if en:
@@ -301,7 +337,7 @@ def cmd_metadata():
     print("Metadata saved.")
 
 
-def cmd_privacy(url="https://tonym1979.github.io/sleepwindow/privacy.html"):
+def cmd_privacy(url="https://has-deploy.github.io/sleepwindow/privacy.html"):
     """Set the privacy policy URL on app info localization."""
     infos = request("GET", f"/v1/apps/{APP_ID}/appInfos", params={"limit": 10})
     # Use the editable one (state EDITABLE / PREPARE_FOR_SUBMISSION etc.)

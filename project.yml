@@ -9,7 +9,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    DEVELOPMENT_TEAM: ""
+    DEVELOPMENT_TEAM: "NH2XFPC9KN"
     CODE_SIGN_STYLE: Automatic
 
 targets:
