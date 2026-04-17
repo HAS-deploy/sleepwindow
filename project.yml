@@ -1,0 +1,88 @@
+name: SleepWindow
+options:
+  bundleIdPrefix: com.sleepwindow
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+
+targets:
+  SleepWindow:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: SleepWindow
+        excludes:
+          - "**/.DS_Store"
+    resources:
+      - SleepWindow/Resources/Assets.xcassets
+      - SleepWindow/Resources/PrivacyInfo.xcprivacy
+      - SleepWindow/Resources/Configuration.storekit
+    info:
+      path: SleepWindow/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: SleepWindow
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sleepwindow.app
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: YES
+        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "1.0.0"
+        GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES
+        SWIFT_EMIT_LOC_STRINGS: YES
+
+  SleepWindowTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: SleepWindowTests
+    dependencies:
+      - target: SleepWindow
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sleepwindow.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  SleepWindow:
+    build:
+      targets:
+        SleepWindow: all
+        SleepWindowTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - SleepWindowTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
