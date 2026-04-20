@@ -8,6 +8,10 @@ struct SleepWindowApp: App {
     private let analytics: AnalyticsService = ConsoleAnalytics()
     private let reminders = ReminderManager()
 
+    init() {
+        PortfolioAnalytics.shared.start(appName: "sleepwindow")
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

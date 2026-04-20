@@ -367,6 +367,7 @@ def cmd_privacy(url="https://has-deploy.github.io/sleepwindow/privacy.html"):
 # --------------------------------------------------------------- screenshots
 
 SCREENSHOT_DISPLAY_TYPE = "APP_IPHONE_67"  # 6.9" iPhone Pro Max — Apple's required size
+IPAD_DISPLAY_TYPE = "APP_IPAD_PRO_3GEN_129"  # 12.9" iPad Pro — Apple's required iPad size
 
 
 def upload_asset(upload_ops, data: bytes):
@@ -382,7 +383,7 @@ def upload_asset(upload_ops, data: bytes):
         urllib.request.urlopen(req).read()
 
 
-def cmd_screenshots():
+def _upload_screenshots_for(display_type, folder_name):
     version_id = get_or_create_version()
     localizations = request("GET", f"/v1/appStoreVersions/{version_id}/appStoreVersionLocalizations")
     en = next((l for l in localizations["data"] if l["attributes"]["locale"] == "en-US"), None)
@@ -391,27 +392,25 @@ def cmd_screenshots():
         return
     loc_id = en["id"]
 
-    # Find / create the 6.9" screenshot set
     sets = request("GET", f"/v1/appStoreVersionLocalizations/{loc_id}/appScreenshotSets",
-                   params={"filter[screenshotDisplayType]": SCREENSHOT_DISPLAY_TYPE})
+                   params={"filter[screenshotDisplayType]": display_type})
     if sets.get("data"):
         set_id = sets["data"][0]["id"]
     else:
         resp = request("POST", "/v1/appScreenshotSets", {
             "data": {
                 "type": "appScreenshotSets",
-                "attributes": {"screenshotDisplayType": SCREENSHOT_DISPLAY_TYPE},
+                "attributes": {"screenshotDisplayType": display_type},
                 "relationships": {"appStoreVersionLocalization": {"data": {"type": "appStoreVersionLocalizations", "id": loc_id}}},
             }
         })
         set_id = resp["data"]["id"]
-    print(f"Screenshot set: {set_id}")
+    print(f"Screenshot set {display_type}: {set_id}")
 
-    # Upload PNGs from docs/screenshots/iphone-69/
-    folder = pathlib.Path("docs/screenshots/iphone-69")
+    folder = pathlib.Path(folder_name)
     files = sorted(folder.glob("*.png"))
     if not files:
-        print("No screenshots in docs/screenshots/iphone-69/")
+        print(f"No screenshots in {folder_name}/")
         return
 
     for path in files:
@@ -428,7 +427,6 @@ def cmd_screenshots():
         shot_id = shot["id"]
         ops = shot["attributes"]["uploadOperations"]
         upload_asset(ops, data)
-        # Mark upload complete
         request("PATCH", f"/v1/appScreenshots/{shot_id}", {
             "data": {
                 "type": "appScreenshots",
@@ -437,6 +435,14 @@ def cmd_screenshots():
             }
         })
         print(f"  -> {shot_id}")
+
+
+def cmd_screenshots():
+    _upload_screenshots_for(SCREENSHOT_DISPLAY_TYPE, "docs/screenshots/iphone-69")
+
+
+def cmd_screenshots_ipad():
+    _upload_screenshots_for(IPAD_DISPLAY_TYPE, "docs/screenshots/ipad-13")
 
 
 # --------------------------------------------------------------- status
