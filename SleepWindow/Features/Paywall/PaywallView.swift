@@ -35,6 +35,9 @@ struct PaywallView: View {
         }
         .onAppear {
             analytics.track(.paywallViewed, properties: ["feature": triggeringFeature.rawValue])
+            PortfolioAnalytics.shared.track(PortfolioEvent.paywallViewed, [
+                "source": triggeringFeature.rawValue,
+            ])
         }
         .onChange(of: purchases.isPremium) { newValue in
             if newValue { dismiss() }
@@ -79,10 +82,17 @@ struct PaywallView: View {
     private var purchaseButton: some View {
         Button {
             analytics.track(.purchaseStarted)
+            PortfolioAnalytics.shared.track(PortfolioEvent.paywallPurchaseClick, [
+                "source": triggeringFeature.rawValue,
+            ])
             Task {
                 await purchases.purchaseLifetime()
                 if purchases.isPremium {
                     analytics.track(.purchaseCompleted)
+                    PortfolioAnalytics.shared.track(PortfolioEvent.paywallPurchaseSuccess, [
+                        "is_sub": false,
+                        "source": triggeringFeature.rawValue,
+                    ])
                 }
             }
         } label: {
