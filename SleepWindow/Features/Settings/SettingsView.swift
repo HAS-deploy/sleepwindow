@@ -21,6 +21,7 @@ struct SettingsView: View {
             displaySection
             presetsSection
             aboutSection
+            moreFromUsSection
             #if DEBUG
             debugSection
             #endif
@@ -170,6 +171,31 @@ struct SettingsView: View {
             Text("About")
         } footer: {
             Text("SleepWindow helps plan sleep timing. Results are estimates and not medical advice.")
+        }
+    }
+
+    private var moreFromUsSection: some View {
+        Section {
+            Link(destination: URL(string: "https://apps.apple.com/app/id6762470335")!) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("HydroLite").font(.body).foregroundStyle(.primary)
+                    Text("Simple, friendly hydration tracking.").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Link(destination: URL(string: "https://apps.apple.com/app/id6762468976")!) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("WalkCue").font(.body).foregroundStyle(.primary)
+                    Text("Step-by-step audio cues for your walks.").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Link(destination: URL(string: "https://apps.apple.com/app/id6762492636")!) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("RackTimer").font(.body).foregroundStyle(.primary)
+                    Text("Smart rest timer for the gym.").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        } header: { Text("More from us") } footer: {
+            Text("Other useful apps from the same team. Tap to open in the App Store.")
         }
     }
 

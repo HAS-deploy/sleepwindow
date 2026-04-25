@@ -1,35 +1,30 @@
 import Foundation
 
-/// Single source of truth for pricing. Change values here, not scattered through the app.
-/// `productID` must match the product configured in App Store Connect and in
-/// `Configuration.storekit` for local sandbox testing.
+/// Single source of truth for pricing. Update values here, not scattered.
+/// Product IDs must match App Store Connect and Configuration.storekit.
 enum PricingConfig {
-    /// Lifetime unlock product identifier.
-    static let lifetimeProductID = "com.sleepwindow.app.lifetime"
+    static let lifetimeProductID  = "com.sleepwindow.app.lifetime"
+    static let monthlyProductID   = "com.sleepwindow.app.monthly"
+    static let subscriptionGroupID = "sleepwindow_premium"
 
-    /// Fallback display price if StoreKit hasn't loaded yet or is unreachable.
-    /// Actual price charged is whatever App Store Connect returns for the product.
     static let fallbackLifetimeDisplayPrice = "$7.99"
+    static let fallbackMonthlyDisplayPrice  = "$2.99"
 
-    /// Copy used on the paywall title.
-    static let paywallTitle = "Unlock SleepWindow"
-    static let paywallSubtitle = "One-time purchase. No subscriptions."
+    static let allProductIDs: [String] = [monthlyProductID, lifetimeProductID]
 
-    /// Bullet points shown on the paywall.
+    static let paywallTitle    = "Unlock SleepWindow"
+    static let paywallSubtitle = "Choose monthly or one-time lifetime unlock."
+
     static let paywallBenefits: [String] = [
         "Unlimited wake-time calculations",
         "Nap planner with three nap types",
         "Caffeine cutoff planner",
         "Unlimited saved presets",
-        "Unlimited bedtime reminders"
+        "Unlimited bedtime reminders",
     ]
 
-    /// Free-tier daily limit on wake-time calculations. Set to `Int.max` to disable.
+    // Free-tier caps.
     static let freeWakeCalculationsPerDay = 3
-
-    /// Free-tier reminders cap.
     static let freeReminderSlots = 1
-
-    /// Free-tier preset cap.
     static let freePresetSlots = 2
 }

@@ -12,14 +12,12 @@ struct PaywallView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     header
-                    priceBlock
                     benefits
-                    purchaseButton
+                    monthlyButton
+                    lifetimeButton
                     restoreButton
                     if let error = purchases.lastError {
-                        Text(error)
-                            .font(.caption)
-                            .foregroundStyle(.red)
+                        Text(error).font(.caption).foregroundStyle(.red)
                     }
                     legalFooter
                 }
@@ -28,9 +26,7 @@ struct PaywallView: View {
             .navigationTitle(PricingConfig.paywallTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Close") { dismiss() }
-                }
+                ToolbarItem(placement: .topBarTrailing) { Button("Close") { dismiss() } }
             }
         }
         .onAppear {
@@ -49,21 +45,8 @@ struct PaywallView: View {
             Image(systemName: "moon.stars.fill")
                 .font(.system(size: 42))
                 .foregroundStyle(Theme.accent)
-            Text("Unlock everything")
-                .font(.largeTitle.bold())
-            Text(PricingConfig.paywallSubtitle)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var priceBlock: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(purchases.lifetimeDisplayPrice)
-                .font(.system(size: 44, weight: .bold, design: .rounded))
-            Text("one-time")
-                .font(.headline)
-                .foregroundStyle(.secondary)
+            Text("Unlock everything").font(.largeTitle.bold())
+            Text(PricingConfig.paywallSubtitle).font(.subheadline).foregroundStyle(.secondary)
         }
     }
 
@@ -73,25 +56,64 @@ struct PaywallView: View {
                 HStack(alignment: .top, spacing: 10) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(Theme.accent)
                     Text(item)
-                }
-                .font(.body)
+                }.font(.body)
             }
         }
     }
 
-    private var purchaseButton: some View {
+    private var monthlyButton: some View {
         Button {
-            analytics.track(.purchaseStarted)
+            analytics.track(.purchaseStarted, properties: ["product": "monthly"])
             PortfolioAnalytics.shared.track(PortfolioEvent.paywallPurchaseClick, [
                 "source": triggeringFeature.rawValue,
+                "product_id": PricingConfig.monthlyProductID,
+            ])
+            Task {
+                await purchases.purchaseMonthly()
+                if purchases.isPremium {
+                    analytics.track(.purchaseCompleted, properties: ["product": "monthly"])
+                    PortfolioAnalytics.shared.track(PortfolioEvent.paywallPurchaseSuccess, [
+                        "is_sub": true,
+                        "source": triggeringFeature.rawValue,
+                        "product_id": PricingConfig.monthlyProductID,
+                    ])
+                }
+            }
+        } label: {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Monthly").font(.headline)
+                    Text("Cancel anytime").font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text("\(purchases.monthlyDisplayPrice)/mo").font(.headline.monospacedDigit())
+            }
+            .padding(.vertical, 14).padding(.horizontal, 16)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                    .stroke(Theme.accent.opacity(0.6), lineWidth: 1.5)
+                    .background(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous).fill(Color(.secondarySystemBackground)))
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(purchases.isPurchasing)
+    }
+
+    private var lifetimeButton: some View {
+        Button {
+            analytics.track(.purchaseStarted, properties: ["product": "lifetime"])
+            PortfolioAnalytics.shared.track(PortfolioEvent.paywallPurchaseClick, [
+                "source": triggeringFeature.rawValue,
+                "product_id": PricingConfig.lifetimeProductID,
             ])
             Task {
                 await purchases.purchaseLifetime()
                 if purchases.isPremium {
-                    analytics.track(.purchaseCompleted)
+                    analytics.track(.purchaseCompleted, properties: ["product": "lifetime"])
                     PortfolioAnalytics.shared.track(PortfolioEvent.paywallPurchaseSuccess, [
                         "is_sub": false,
                         "source": triggeringFeature.rawValue,
+                        "product_id": PricingConfig.lifetimeProductID,
                     ])
                 }
             }
@@ -100,14 +122,17 @@ struct PaywallView: View {
                 if purchases.isPurchasing {
                     ProgressView().tint(.white)
                 } else {
-                    Text("Unlock for \(purchases.lifetimeDisplayPrice)")
-                        .fontWeight(.semibold)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Lifetime").font(.headline).foregroundStyle(.white)
+                        Text("Best value · pay once").font(.caption).foregroundStyle(.white.opacity(0.85))
+                    }
+                    Spacer()
+                    Text(purchases.lifetimeDisplayPrice).font(.headline.monospacedDigit()).foregroundStyle(.white)
                 }
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
+            .padding(.vertical, 16).padding(.horizontal, 16)
             .background(Theme.accent)
-            .foregroundStyle(.white)
             .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -118,22 +143,24 @@ struct PaywallView: View {
         Button {
             Task {
                 await purchases.restorePurchases()
-                if purchases.isPremium {
-                    analytics.track(.purchaseRestored)
-                }
+                if purchases.isPremium { analytics.track(.purchaseRestored) }
             }
         } label: {
-            Text("Restore purchases")
-                .font(.subheadline)
-                .foregroundStyle(Theme.accent)
+            Text("Restore purchases").font(.subheadline).foregroundStyle(Theme.accent)
         }
         .frame(maxWidth: .infinity)
     }
 
     private var legalFooter: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("One-time purchase. No subscriptions or recurring charges.")
-            Text("Payment is charged to your Apple ID. Restore purchases at any time from this screen.")
+            Text("Monthly plan is an auto-renewing subscription. Payment is charged to your Apple ID at confirmation and renews each month unless canceled at least 24 hours before the current period ends. Manage or cancel in your Apple ID Account Settings.")
+            Text("Lifetime is a one-time non-consumable purchase with no recurring charges.")
+            Text("Restore purchases at any time from this screen.")
+            HStack(spacing: 12) {
+                Link("Terms of Use", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
+                Text("·")
+                Link("Privacy Policy", destination: URL(string: "https://has-deploy.github.io/sleepwindow-website/privacy-policy.html")!)
+            }
         }
         .font(.caption2)
         .foregroundStyle(Theme.subtle)
