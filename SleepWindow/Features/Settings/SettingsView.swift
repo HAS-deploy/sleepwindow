@@ -12,6 +12,8 @@ struct SettingsView: View {
     @State private var bedtimeReminderTime: Date = TimeFormatter.dateByCombining(today: Date(), hour: 22, minute: 30)
     @State private var bedtimeReminderEnabled: Bool = false
     @State private var reminderAuthStatus: ReminderManager.AuthStatus = .notDetermined
+    @State private var presetSaveTrigger = 0
+    @State private var reminderEnabledTrigger = 0
 
     var body: some View {
         Form {
@@ -35,6 +37,8 @@ struct SettingsView: View {
             PaywallView(triggeringFeature: .multipleReminders)
                 .environmentObject(purchases)
         }
+        .hapticSuccess(trigger: presetSaveTrigger)
+        .hapticSuccess(trigger: reminderEnabledTrigger)
     }
 
     // MARK: - Sections
@@ -147,6 +151,7 @@ struct SettingsView: View {
                     let preset = WakePreset(name: "Preset \(presets.wakePresets.count + 1)", hour: 7, minute: 0)
                     presets.addWakePreset(preset)
                     analytics.track(.presetSaved)
+                    presetSaveTrigger &+= 1
                 } else {
                     showPaywall = true
                 }
@@ -242,6 +247,7 @@ struct SettingsView: View {
 
         await rescheduleBedtime()
         analytics.track(.reminderEnabled, properties: ["kind": "bedtime"])
+        reminderEnabledTrigger &+= 1
     }
 
     private func rescheduleBedtime() async {

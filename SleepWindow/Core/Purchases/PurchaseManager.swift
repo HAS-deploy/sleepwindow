@@ -8,6 +8,10 @@ final class PurchaseManager: ObservableObject {
     @Published private(set) var monthlyProduct: Product?
     @Published private(set) var isPurchasing: Bool = false
     @Published var lastError: String?
+    /// Set on each purchase attempt so the PaywallView can emit a properly
+    /// tagged analytics event distinguishing user-cancel / pending / errors.
+    /// Cleared at the start of each new attempt.
+    @Published private(set) var lastFailureReason: String?
 
     private var updatesTask: Task<Void, Never>?
     private let premiumKey = "sleepwindow.isPremium"
@@ -68,23 +72,33 @@ final class PurchaseManager: ObservableObject {
     private func purchase(_ product: Product) async {
         isPurchasing = true
         defer { isPurchasing = false }
+        lastFailureReason = nil
         do {
             let result = try await product.purchase()
-            try await handle(result: result)
+            try await handle(result: result, product: product)
         } catch {
             self.lastError = error.localizedDescription
+            self.lastFailureReason = error.localizedDescription
+            PortfolioAnalytics.shared.trackPaywallFailure(productId: product.id, error: error)
         }
     }
 
-    private func handle(result: Product.PurchaseResult) async throws {
+    private func handle(result: Product.PurchaseResult, product: Product) async throws {
         switch result {
         case .success(let verification):
             let transaction = try checkVerified(verification)
             setPremium(true)
             await transaction.finish()
-        case .userCancelled: break
-        case .pending: self.lastError = "Purchase is pending approval."
-        @unknown default: break
+        case .userCancelled:
+            lastFailureReason = "user_cancelled"
+            PortfolioAnalytics.shared.trackPaywallFailure(productId: product.id, reason: .userCanceled)
+        case .pending:
+            self.lastError = "Purchase is pending approval."
+            lastFailureReason = "pending_approval"
+            PortfolioAnalytics.shared.trackPaywallFailure(productId: product.id, reason: .pending)
+        @unknown default:
+            lastFailureReason = "storekit_unknown_case"
+            PortfolioAnalytics.shared.trackPaywallFailure(productId: product.id, reason: .unknown)
         }
     }
 
