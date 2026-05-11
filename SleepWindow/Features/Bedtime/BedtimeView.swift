@@ -15,7 +15,7 @@ struct BedtimeView: View {
     }
 
     private var calc: SleepCalculator { settings.calculator }
-    private var gate: PremiumGate { PremiumGate(isPremium: purchases.isPremium) }
+    private var gate: PremiumGate { PremiumGate(purchases: purchases) }
 
     private var bedtimes: [BedtimeOption] {
         // Make sure the computed bedtimes are *before* the wake time (rolls back one day if needed).

@@ -11,7 +11,7 @@ struct WakeTimeView: View {
     @State private var results: [WakeOption] = []
     @State private var showLimitNotice: Bool = false
 
-    private var gate: PremiumGate { PremiumGate(isPremium: purchases.isPremium) }
+    private var gate: PremiumGate { PremiumGate(purchases: purchases) }
     private var calc: SleepCalculator { settings.calculator }
     private var isAtFreeLimit: Bool {
         !gate.canUseWakeCalculator(timesUsedToday: settings.wakeCalcsUsedToday())
@@ -30,7 +30,7 @@ struct WakeTimeView: View {
                     resultsSection
                 }
 
-                if !purchases.isPremium {
+                if !gate.isEntitled {
                     freeTierNotice
                 }
 
@@ -115,7 +115,7 @@ struct WakeTimeView: View {
         let now = Date()
         sleepStart = now
         results = calc.wakeTimes(fromSleepStart: now)
-        if !purchases.isPremium { settings.incrementWakeCalcsToday() }
+        if !gate.isEntitled { settings.incrementWakeCalcsToday() }
         analytics.track(.calculatorUsed, properties: ["kind": "wake_time"])
     }
 }

@@ -48,6 +48,23 @@ struct SettingsView: View {
             if purchases.isPremium {
                 Label("Premium unlocked", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(Theme.accent)
+            } else if purchases.installTrialActive {
+                let remaining = purchases.installTrialDaysRemaining()
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Free trial active", systemImage: "sparkles")
+                        .foregroundStyle(Theme.accent)
+                    Text("All Pro features unlocked. \(remaining) day\(remaining == 1 ? "" : "s") remaining.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Button {
+                    showPaywall = true
+                } label: {
+                    Text("Unlock permanently").font(.subheadline)
+                }
+                Button("Restore purchases") {
+                    Task { await purchases.restorePurchases() }
+                }
             } else {
                 Button {
                     showPaywall = true
@@ -146,7 +163,7 @@ struct SettingsView: View {
                 .onDelete { offsets in presets.removeWakePreset(at: offsets) }
             }
             Button {
-                let gate = PremiumGate(isPremium: purchases.isPremium)
+                let gate = PremiumGate(purchases: purchases)
                 if gate.canSaveAnotherPreset(currentCount: presets.wakePresets.count) {
                     let preset = WakePreset(name: "Preset \(presets.wakePresets.count + 1)", hour: 7, minute: 0)
                     presets.addWakePreset(preset)
@@ -161,7 +178,7 @@ struct SettingsView: View {
         } header: {
             Text("Saved presets")
         } footer: {
-            if !purchases.isPremium {
+            if !PremiumGate(purchases: purchases).isEntitled {
                 Text("Free tier: up to \(PricingConfig.freePresetSlots) presets. Unlock for unlimited.")
             }
         }
@@ -224,7 +241,7 @@ struct SettingsView: View {
             reminders.cancel(identifier: "bedtime_reminder")
             return
         }
-        let gate = PremiumGate(isPremium: purchases.isPremium)
+        let gate = PremiumGate(purchases: purchases)
         let pending = await reminders.pendingIdentifiers()
         let others = pending.filter { $0 != "bedtime_reminder" }.count
         if !gate.canEnableAnotherReminder(currentCount: others) {

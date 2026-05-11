@@ -45,6 +45,32 @@
           "referenceName" : "SleepWindow Premium Monthly",
           "subscriptionGroupID" : "sleepwindow_premium",
           "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "19.99",
+          "familyShareable" : false,
+          "groupNumber" : 2,
+          "internalID" : "com.sleepwindow.app.yearly",
+          "introductoryOffer" : {
+            "internalID" : "com.sleepwindow.app.yearly.trial",
+            "paymentMode" : "free",
+            "subscriptionPeriod" : "P2W",
+            "numberOfPeriods" : 1
+          },
+          "localizations" : [
+            {
+              "description" : "Auto-renewing yearly with 14-day trial.",
+              "displayName" : "SleepWindow Premium (Yearly)",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.sleepwindow.app.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "SleepWindow Premium Yearly",
+          "subscriptionGroupID" : "sleepwindow_premium",
+          "type" : "RecurringSubscription"
         }
       ]
     }

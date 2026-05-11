@@ -13,6 +13,7 @@ struct PaywallView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     header
                     benefits
+                    yearlyCard
                     monthlyButton
                     lifetimeButton
                     restoreButton
@@ -61,6 +62,72 @@ struct PaywallView: View {
         }
     }
 
+    // MARK: - Yearly (with 14-day trial)
+
+    private var yearlyCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                analytics.track(.purchaseStarted, properties: ["product": "yearly"])
+                PortfolioAnalytics.shared.track(PortfolioEvent.paywallPurchaseClick, [
+                    "source": triggeringFeature.rawValue,
+                    "product_id": PricingConfig.annualProductID,
+                ])
+                Task {
+                    let before = purchases.isPremium
+                    await purchases.purchaseYearly()
+                    if purchases.isPremium && !before {
+                        analytics.track(.purchaseCompleted, properties: ["product": "yearly"])
+                        PortfolioAnalytics.shared.track(PortfolioEvent.paywallPurchaseSuccess, [
+                            "is_sub": true,
+                            "source": triggeringFeature.rawValue,
+                            "product_id": PricingConfig.annualProductID,
+                        ])
+                    }
+                    // paywall.purchase_failed is emitted from PurchaseManager with
+                    // a typed PurchaseFailureReason. Don't double-emit here.
+                }
+            } label: {
+                HStack(alignment: .center) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 8) {
+                            Text("Yearly").font(.headline).foregroundStyle(.white)
+                            Text("Best Value")
+                                .font(.caption.bold())
+                                .padding(.horizontal, 8).padding(.vertical, 2)
+                                .background(Color.white.opacity(0.22))
+                                .foregroundStyle(.white)
+                                .clipShape(Capsule())
+                        }
+                        Text(PricingConfig.annualTrialDescription)
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.9))
+                    }
+                    Spacer()
+                    Text("\(purchases.yearlyDisplayPrice)/yr")
+                        .font(.headline.monospacedDigit())
+                        .foregroundStyle(.white)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16).padding(.horizontal, 16)
+                .background(Theme.accent)
+                .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+            }
+            .buttonStyle(.plain)
+            .disabled(purchases.isPurchasing)
+
+            // 3.1.2(a) forfeiture sentence — rendered inline under the
+            // trial offer so the reviewer sees it next to the buy button.
+            // Paired with the same line in the bottom disclosure block.
+            Text(PricingConfig.disclosureFreeTrial)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 4)
+        }
+    }
+
+    // MARK: - Monthly
+
     private var monthlyButton: some View {
         Button {
             analytics.track(.purchaseStarted, properties: ["product": "monthly"])
@@ -86,11 +153,12 @@ struct PaywallView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Monthly").font(.headline)
-                    Text("Cancel anytime").font(.caption).foregroundStyle(.secondary)
+                    Text("Flexible — cancel anytime").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Text("\(purchases.monthlyDisplayPrice)/mo").font(.headline.monospacedDigit())
             }
+            .frame(maxWidth: .infinity)
             .padding(.vertical, 14).padding(.horizontal, 16)
             .background(
                 RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
@@ -101,6 +169,8 @@ struct PaywallView: View {
         .buttonStyle(.plain)
         .disabled(purchases.isPurchasing)
     }
+
+    // MARK: - Lifetime
 
     private var lifetimeButton: some View {
         Button {
@@ -125,21 +195,20 @@ struct PaywallView: View {
             }
         } label: {
             HStack {
-                if purchases.isPurchasing {
-                    ProgressView().tint(.white)
-                } else {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Lifetime").font(.headline).foregroundStyle(.white)
-                        Text("Best value · pay once").font(.caption).foregroundStyle(.white.opacity(0.85))
-                    }
-                    Spacer()
-                    Text(purchases.lifetimeDisplayPrice).font(.headline.monospacedDigit()).foregroundStyle(.white)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Lifetime").font(.headline)
+                    Text("One-time unlock · keep forever").font(.caption).foregroundStyle(.secondary)
                 }
+                Spacer()
+                Text(purchases.lifetimeDisplayPrice).font(.headline.monospacedDigit())
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 16).padding(.horizontal, 16)
-            .background(Theme.accent)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
+            .padding(.vertical, 14).padding(.horizontal, 14)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                    .stroke(Theme.accent.opacity(0.4), lineWidth: 1)
+                    .background(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous).fill(Color(.tertiarySystemBackground)))
+            )
         }
         .buttonStyle(.plain)
         .disabled(purchases.isPurchasing)
@@ -158,18 +227,33 @@ struct PaywallView: View {
         .frame(maxWidth: .infinity)
     }
 
+    // MARK: - Legal footer (3.1.2(a) disclosure block, verbatim from PricingConfig)
+
     private var legalFooter: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Monthly plan is an auto-renewing subscription. Payment is charged to your Apple ID at confirmation and renews each month unless canceled at least 24 hours before the current period ends. Manage or cancel in your Apple ID Account Settings.")
-            Text("Lifetime is a one-time non-consumable purchase with no recurring charges.")
-            Text("Restore purchases at any time from this screen.")
-            HStack(spacing: 12) {
-                Link("Terms of Use", destination: URL(string: "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/")!)
-                Text("·")
-                Link("Privacy Policy", destination: URL(string: "https://has-deploy.github.io/sleepwindow-website/privacy-policy.html")!)
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Auto-renewing subscriptions (SleepWindow Premium Monthly, SleepWindow Premium Yearly)")
+                .font(.footnote).fontWeight(.semibold)
+            // 3.1.2(a) disclosure block — rendered VERBATIM from
+            // PricingConfig so paywall copy + ASC metadata stay in lockstep.
+            // The free-trial forfeiture sentence appears here AND inline
+            // under the yearly card per the canonical pattern.
+            VStack(alignment: .leading, spacing: 4) {
+                Text("• " + PricingConfig.disclosurePaymentCharged)
+                Text("• " + PricingConfig.disclosureAutoRenew)
+                Text("• " + PricingConfig.disclosureRenewalCharge)
+                Text("• " + PricingConfig.disclosureManage)
+                Text("• " + PricingConfig.disclosureFreeTrial)
+                Text("• SleepWindow Lifetime is a one-time non-consumable purchase with no recurring charges.")
             }
+            .font(.caption2).foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: 12) {
+                Link("Terms of Use (EULA)", destination: URL(string: PricingConfig.appleStdEULAURL)!)
+                Text("·")
+                Link("Privacy Policy", destination: URL(string: PricingConfig.privacyPolicyURL)!)
+            }
+            .font(.caption2)
         }
-        .font(.caption2)
         .foregroundStyle(Theme.subtle)
     }
 }

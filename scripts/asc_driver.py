@@ -286,6 +286,13 @@ def get_or_create_version(version_string="1.0.0"):
 
 
 def cmd_metadata():
+    # WARNING (2026-05-11): This description payload is STALE. It lacks:
+    #   - the Terms+Privacy URL footer (3.1.2(c) — SleepWindow was rejected 2026-04-23 for exactly this)
+    #   - the new yearly subscription tier (com.sleepwindow.app.yearly, $19.99, 14-day P2W free trial)
+    # Running this command as-is will overwrite the currently-approved live
+    # description with a non-compliant one. Update the `description` payload
+    # below (see /Users/tony/Developer/sleepwindow/docs/asc-description-v-next.md
+    # for the corrected text) before invoking `asc_driver.py metadata`.
     version_id = get_or_create_version()
     # Look for existing en-US localization
     locs = request("GET", f"/v1/appStoreVersions/{version_id}/appStoreVersionLocalizations",

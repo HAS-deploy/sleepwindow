@@ -55,7 +55,12 @@ struct RootView: View {
         }
         .onAppear {
             #if DEBUG
-            if UserDefaults.standard.bool(forKey: "SLEEPWINDOW_SHOW_PAYWALL") {
+            // Suppress the debug paywall while the install-time trial is
+            // active — the trial grants full Pro access, so popping the
+            // paywall would contradict that and pollute analytics with
+            // a paywall view that shouldn't have happened.
+            if UserDefaults.standard.bool(forKey: "SLEEPWINDOW_SHOW_PAYWALL"),
+               !purchases.installTrialActive {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                     paywallTrigger = .napPlanner
                 }

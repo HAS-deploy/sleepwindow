@@ -4,8 +4,14 @@ import StoreKit
 @MainActor
 final class PurchaseManager: ObservableObject {
     @Published private(set) var isPremium: Bool = false
+    /// True while the user is inside the 14-day install-time trial window
+    /// AND is not yet a paying premium user. Reads/writes flow through
+    /// UserDefaults key `sleepwindow.firstLaunchAt` (see `installTrialDays`).
+    /// `isEntitled` should be preferred over reading this directly.
+    @Published private(set) var installTrialActive: Bool = false
     @Published private(set) var lifetimeProduct: Product?
     @Published private(set) var monthlyProduct: Product?
+    @Published private(set) var yearlyProduct: Product?
     @Published private(set) var isPurchasing: Bool = false
     @Published var lastError: String?
     /// Set on each purchase attempt so the PaywallView can emit a properly
@@ -15,16 +21,75 @@ final class PurchaseManager: ObservableObject {
 
     private var updatesTask: Task<Void, Never>?
     private let premiumKey = "sleepwindow.isPremium"
+    /// UserDefaults key. Set on first launch, read on every subsequent
+    /// launch to compute trial state. Never reset by the app itself —
+    /// uninstall/reinstall starts a fresh trial (Apple-side trial gating
+    /// still applies to paid intro offers).
+    static let firstLaunchKey = "sleepwindow.firstLaunchAt"
+    /// 14-day install-time trial (matches `PricingConfig.annualTrialDays`).
+    static let installTrialDays: Int = PricingConfig.annualTrialDays
+    private let defaults: UserDefaults
 
-    init() {
-        var initial = UserDefaults.standard.bool(forKey: premiumKey)
+    init(defaults: UserDefaults = .standard, now: Date = Date()) {
+        self.defaults = defaults
+        var initial = defaults.bool(forKey: premiumKey)
         #if DEBUG
         if ProcessInfo.processInfo.environment["SLEEPWINDOW_FORCE_PREMIUM"] == "1"
-            || UserDefaults.standard.bool(forKey: "SLEEPWINDOW_FORCE_PREMIUM") {
+            || defaults.bool(forKey: "SLEEPWINDOW_FORCE_PREMIUM") {
             initial = true
         }
         #endif
         self.isPremium = initial
+        stampFirstLaunchIfNeeded(now: now)
+        self.installTrialActive = Self.computeInstallTrialActive(
+            isPremium: initial,
+            firstLaunchAt: defaults.object(forKey: Self.firstLaunchKey) as? Date,
+            now: now
+        )
+    }
+
+    /// True if this user is currently entitled to Pro features — either
+    /// because they paid (`isPremium`) or because they're inside the
+    /// 14-day install-time trial. Call sites should prefer this over
+    /// reading `isPremium` directly when deciding whether to gate UI.
+    var isEntitled: Bool { isPremium || installTrialActive }
+
+    /// Number of days remaining in the install-time trial. Returns 0 once
+    /// the trial has elapsed; returns `installTrialDays` if the clock has
+    /// not been stamped yet (shouldn't happen after init).
+    func installTrialDaysRemaining(now: Date = Date()) -> Int {
+        guard !isPremium else { return 0 }
+        guard let start = defaults.object(forKey: Self.firstLaunchKey) as? Date else {
+            return Self.installTrialDays
+        }
+        let elapsed = Calendar.current.dateComponents([.day], from: start, to: now).day ?? 0
+        return max(0, Self.installTrialDays - elapsed)
+    }
+
+    /// Recompute `installTrialActive` against `now`. Called from
+    /// `start()` and exposed so a future scene-foreground hook can keep
+    /// the published value fresh as days roll over.
+    func refreshInstallTrial(now: Date = Date()) {
+        installTrialActive = Self.computeInstallTrialActive(
+            isPremium: isPremium,
+            firstLaunchAt: defaults.object(forKey: Self.firstLaunchKey) as? Date,
+            now: now
+        )
+    }
+
+    private func stampFirstLaunchIfNeeded(now: Date) {
+        if defaults.object(forKey: Self.firstLaunchKey) as? Date == nil {
+            defaults.set(now, forKey: Self.firstLaunchKey)
+        }
+    }
+
+    private static func computeInstallTrialActive(isPremium: Bool,
+                                                  firstLaunchAt: Date?,
+                                                  now: Date) -> Bool {
+        guard !isPremium else { return false }
+        guard let start = firstLaunchAt else { return true }
+        let elapsed = Calendar.current.dateComponents([.day], from: start, to: now).day ?? 0
+        return elapsed < installTrialDays
     }
 
     deinit { updatesTask?.cancel() }
@@ -32,6 +97,7 @@ final class PurchaseManager: ObservableObject {
     func start() async {
         await loadProducts()
         await refreshEntitlements()
+        refreshInstallTrial()
         observeTransactionUpdates()
     }
 
@@ -43,11 +109,16 @@ final class PurchaseManager: ObservableObject {
         monthlyProduct?.displayPrice ?? PricingConfig.fallbackMonthlyDisplayPrice
     }
 
+    var yearlyDisplayPrice: String {
+        yearlyProduct?.displayPrice ?? PricingConfig.fallbackAnnualDisplayPrice
+    }
+
     func loadProducts() async {
         do {
             let products = try await Product.products(for: PricingConfig.allProductIDs)
             self.lifetimeProduct = products.first { $0.id == PricingConfig.lifetimeProductID }
             self.monthlyProduct  = products.first { $0.id == PricingConfig.monthlyProductID }
+            self.yearlyProduct   = products.first { $0.id == PricingConfig.annualProductID }
         } catch {
             self.lastError = "Couldn't load the store. Check your connection and try again."
         }
@@ -63,6 +134,14 @@ final class PurchaseManager: ObservableObject {
 
     func purchaseMonthly() async {
         guard let product = monthlyProduct else {
+            self.lastError = "Product unavailable. Try again in a moment."
+            return
+        }
+        await purchase(product)
+    }
+
+    func purchaseYearly() async {
+        guard let product = yearlyProduct else {
             self.lastError = "Product unavailable. Try again in a moment."
             return
         }
@@ -154,7 +233,10 @@ final class PurchaseManager: ObservableObject {
 
     private func setPremium(_ value: Bool) {
         self.isPremium = value
-        UserDefaults.standard.set(value, forKey: premiumKey)
+        defaults.set(value, forKey: premiumKey)
+        // Premium overrides the trial flag — once paid, `installTrialActive`
+        // must read false so analytics / UI don't double-count.
+        refreshInstallTrial()
     }
 
     private func checkVerified<T>(_ result: VerificationResult<T>) throws -> T {
