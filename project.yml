@@ -29,7 +29,8 @@ targets:
     resources:
       - SleepWindow/Resources/Assets.xcassets
       - SleepWindow/Resources/PrivacyInfo.xcprivacy
-      - SleepWindow/Resources/Configuration.storekit
+      # Configuration.storekit intentionally NOT bundled in Release.
+      # Attach via scheme Run/Test action for local StoreKit testing only.
     dependencies:
       - package: PostHog
         product: PostHog

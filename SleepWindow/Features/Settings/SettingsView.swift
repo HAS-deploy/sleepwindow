@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 
 struct SettingsView: View {
     @EnvironmentObject var settings: SettingsStore
@@ -8,12 +9,19 @@ struct SettingsView: View {
     @Environment(\.reminders) private var reminders
 
     @State private var showPaywall = false
+    /// Source attribution for paywall presentations from Settings. Set
+    /// immediately before flipping `showPaywall = true` so funnel
+    /// analytics record the correct trigger feature.
+    @State private var paywallTrigger: PremiumFeature = .multipleReminders
     @State private var showingReminderSheet = false
     @State private var bedtimeReminderTime: Date = TimeFormatter.dateByCombining(today: Date(), hour: 22, minute: 30)
     @State private var bedtimeReminderEnabled: Bool = false
     @State private var reminderAuthStatus: ReminderManager.AuthStatus = .notDetermined
     @State private var presetSaveTrigger = 0
     @State private var reminderEnabledTrigger = 0
+    /// Mirrors `!PortfolioAnalytics.shared.isOptedOut`. Bound to the
+    /// analytics toggle so flipping it routes to `optIn` / `optOut`.
+    @State private var analyticsEnabled: Bool = !PortfolioAnalytics.shared.isOptedOut
 
     var body: some View {
         Form {
@@ -34,7 +42,7 @@ struct SettingsView: View {
             bedtimeReminderEnabled = await reminders.pendingIdentifiers().contains("bedtime_reminder")
         }
         .sheet(isPresented: $showPaywall) {
-            PaywallView(triggeringFeature: .multipleReminders)
+            PaywallView(triggeringFeature: paywallTrigger)
                 .environmentObject(purchases)
         }
         .hapticSuccess(trigger: presetSaveTrigger)
@@ -48,6 +56,19 @@ struct SettingsView: View {
             if purchases.isPremium {
                 Label("Premium unlocked", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(Theme.accent)
+                Button("Manage subscription") {
+                    Task {
+                        guard let scene = UIApplication.shared.connectedScenes
+                            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene
+                            ?? UIApplication.shared.connectedScenes.first as? UIWindowScene else {
+                            return
+                        }
+                        try? await AppStore.showManageSubscriptions(in: scene)
+                    }
+                }
+                Button("Restore purchases") {
+                    Task { await purchases.restorePurchases() }
+                }
             } else if purchases.installTrialActive {
                 let remaining = purchases.installTrialDaysRemaining()
                 VStack(alignment: .leading, spacing: 4) {
@@ -58,6 +79,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                 }
                 Button {
+                    paywallTrigger = .savedPresets
                     showPaywall = true
                 } label: {
                     Text("Unlock permanently").font(.subheadline)
@@ -67,6 +89,7 @@ struct SettingsView: View {
                 }
             } else {
                 Button {
+                    paywallTrigger = .savedPresets
                     showPaywall = true
                 } label: {
                     HStack {
@@ -170,6 +193,7 @@ struct SettingsView: View {
                     analytics.track(.presetSaved)
                     presetSaveTrigger &+= 1
                 } else {
+                    paywallTrigger = .savedPresets
                     showPaywall = true
                 }
             } label: {
@@ -186,13 +210,21 @@ struct SettingsView: View {
 
     private var aboutSection: some View {
         Section {
-            Link("Privacy policy", destination: URL(string: "https://has-deploy.github.io/sleepwindow/privacy.html")!)
-            Link("Support", destination: URL(string: "https://has-deploy.github.io/sleepwindow/support.html")!)
+            Toggle("Share anonymous usage data", isOn: $analyticsEnabled)
+                .onChange(of: analyticsEnabled) { newValue in
+                    if newValue {
+                        PortfolioAnalytics.shared.optIn()
+                    } else {
+                        PortfolioAnalytics.shared.optOut()
+                    }
+                }
+            Link("Privacy policy", destination: URL(string: PricingConfig.privacyPolicyURL)!)
+            Link("Support", destination: URL(string: PricingConfig.supportURL)!)
             LabeledContent("Version", value: Bundle.main.marketingVersion)
         } header: {
             Text("About")
         } footer: {
-            Text("SleepWindow helps plan sleep timing. Results are estimates and not medical advice.")
+            Text("Anonymous analytics help us improve SleepWindow. No identifying data is collected. Results are estimates and not medical advice.")
         }
     }
 
@@ -246,6 +278,7 @@ struct SettingsView: View {
         let others = pending.filter { $0 != "bedtime_reminder" }.count
         if !gate.canEnableAnotherReminder(currentCount: others) {
             bedtimeReminderEnabled = false
+            paywallTrigger = .multipleReminders
             showPaywall = true
             return
         }
@@ -285,6 +318,6 @@ struct SettingsView: View {
 
 private extension Bundle {
     var marketingVersion: String {
-        (infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.0.0"
+        (infoDictionary?["CFBundleShortVersionString"] as? String) ?? "unknown"
     }
 }

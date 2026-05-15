@@ -10,11 +10,14 @@ struct WakeTimeView: View {
     @State private var sleepStart: Date = Date()
     @State private var results: [WakeOption] = []
     @State private var showLimitNotice: Bool = false
+    /// Cached count so the body doesn't pull through `SettingsStore` per
+    /// render. Initialized on first appear, bumped after each calculation.
+    @State private var wakeCalcsToday: Int = 0
 
     private var gate: PremiumGate { PremiumGate(purchases: purchases) }
     private var calc: SleepCalculator { settings.calculator }
     private var isAtFreeLimit: Bool {
-        !gate.canUseWakeCalculator(timesUsedToday: settings.wakeCalcsUsedToday())
+        !gate.canUseWakeCalculator(timesUsedToday: wakeCalcsToday)
     }
 
     var body: some View {
@@ -40,6 +43,7 @@ struct WakeTimeView: View {
         }
         .navigationTitle("Wake Time")
         .navigationBarTitleDisplayMode(.large)
+        .onAppear { wakeCalcsToday = settings.wakeCalcsUsedToday() }
         .alert("Daily limit reached", isPresented: $showLimitNotice) {
             Button("Unlock") { onGatedTap(.wakeTimeCalculator) }
             Button("Later", role: .cancel) { }
@@ -94,8 +98,7 @@ struct WakeTimeView: View {
     }
 
     private var freeTierNotice: some View {
-        let used = settings.wakeCalcsUsedToday()
-        let remaining = max(0, PricingConfig.freeWakeCalculationsPerDay - used)
+        let remaining = max(0, PricingConfig.freeWakeCalculationsPerDay - wakeCalcsToday)
         return Text("Free tier: \(remaining) wake-time calculation\(remaining == 1 ? "" : "s") left today.")
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -115,7 +118,10 @@ struct WakeTimeView: View {
         let now = Date()
         sleepStart = now
         results = calc.wakeTimes(fromSleepStart: now)
-        if !gate.isEntitled { settings.incrementWakeCalcsToday() }
+        if !gate.isEntitled {
+            settings.incrementWakeCalcsToday()
+            wakeCalcsToday = settings.wakeCalcsUsedToday()
+        }
         analytics.track(.calculatorUsed, properties: ["kind": "wake_time"])
     }
 }

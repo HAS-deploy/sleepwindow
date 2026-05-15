@@ -9,7 +9,7 @@ struct NapsView: View {
 
     @State private var start: Date = Date()
     private var calc: SleepCalculator { settings.calculator }
-    private var gate: PremiumGate { PremiumGate(isPremium: purchases.isPremium) }
+    private var gate: PremiumGate { PremiumGate(purchases: purchases) }
 
     var body: some View {
         ScrollView {
@@ -24,7 +24,13 @@ struct NapsView: View {
         }
         .navigationTitle("Naps")
         .navigationBarTitleDisplayMode(.large)
-        .onAppear { analytics.track(.calculatorUsed, properties: ["kind": "nap_view"]) }
+        .onAppear {
+            // Only count the nap planner as "used" when the user actually has
+            // access — otherwise free-tier views inflate calculator_used.
+            if gate.isAllowed(.napPlanner) {
+                analytics.track(.calculatorUsed, properties: ["kind": "nap_view"])
+            }
+        }
     }
 
     private var premiumContent: some View {

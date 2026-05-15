@@ -7,12 +7,22 @@ struct PaywallView: View {
 
     let triggeringFeature: PremiumFeature
 
+    /// True when StoreKit returned no subscription products on this Apple ID
+    /// (typical when the products are still DEVELOPER_ACTION_NEEDED in ASC).
+    /// Lifetime is non-renewing and unaffected.
+    private var subscriptionsUnavailable: Bool {
+        purchases.monthlyProduct == nil && purchases.yearlyProduct == nil
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     header
                     benefits
+                    if subscriptionsUnavailable {
+                        unavailableBanner
+                    }
                     yearlyCard
                     monthlyButton
                     lifetimeButton
@@ -62,6 +72,29 @@ struct PaywallView: View {
         }
     }
 
+    /// Shown when StoreKit returned no monthly/yearly products. Tells the user
+    /// up-front that subscriptions are temporarily unavailable on this Apple
+    /// ID before they tap a non-functional buy button.
+    private var unavailableBanner: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Subscriptions temporarily unavailable")
+                    .font(.subheadline.weight(.semibold))
+                Text("Monthly and yearly plans aren't loading on this Apple ID right now. Lifetime is still available, or try again later.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous)
+                .fill(Color.orange.opacity(0.12))
+        )
+    }
+
     // MARK: - Yearly (with 14-day trial)
 
     private var yearlyCard: some View {
@@ -103,17 +136,17 @@ struct PaywallView: View {
                             .foregroundStyle(.white.opacity(0.9))
                     }
                     Spacer()
-                    Text("\(purchases.yearlyDisplayPrice)/yr")
+                    Text(purchases.yearlyProduct == nil ? "Unavailable" : "\(purchases.yearlyDisplayPrice)/yr")
                         .font(.headline.monospacedDigit())
                         .foregroundStyle(.white)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16).padding(.horizontal, 16)
-                .background(Theme.accent)
+                .background(Theme.accent.opacity(purchases.yearlyProduct == nil ? 0.5 : 1))
                 .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous))
             }
             .buttonStyle(.plain)
-            .disabled(purchases.isPurchasing)
+            .disabled(purchases.isPurchasing || purchases.yearlyProduct == nil)
 
             // 3.1.2(a) forfeiture sentence — rendered inline under the
             // trial offer so the reviewer sees it next to the buy button.
@@ -153,10 +186,12 @@ struct PaywallView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Monthly").font(.headline)
-                    Text("Flexible — cancel anytime").font(.caption).foregroundStyle(.secondary)
+                    Text(purchases.monthlyProduct == nil ? "Unavailable on this Apple ID" : "Flexible — cancel anytime")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text("\(purchases.monthlyDisplayPrice)/mo").font(.headline.monospacedDigit())
+                Text(purchases.monthlyProduct == nil ? "Unavailable" : "\(purchases.monthlyDisplayPrice)/mo")
+                    .font(.headline.monospacedDigit())
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14).padding(.horizontal, 16)
@@ -165,9 +200,10 @@ struct PaywallView: View {
                     .stroke(Theme.accent.opacity(0.6), lineWidth: 1.5)
                     .background(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous).fill(Color(.secondarySystemBackground)))
             )
+            .opacity(purchases.monthlyProduct == nil ? 0.55 : 1)
         }
         .buttonStyle(.plain)
-        .disabled(purchases.isPurchasing)
+        .disabled(purchases.isPurchasing || purchases.monthlyProduct == nil)
     }
 
     // MARK: - Lifetime
@@ -197,10 +233,12 @@ struct PaywallView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Lifetime").font(.headline)
-                    Text("One-time unlock · keep forever").font(.caption).foregroundStyle(.secondary)
+                    Text(purchases.lifetimeProduct == nil ? "Unavailable on this Apple ID" : "One-time unlock · keep forever")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text(purchases.lifetimeDisplayPrice).font(.headline.monospacedDigit())
+                Text(purchases.lifetimeProduct == nil ? "Unavailable" : purchases.lifetimeDisplayPrice)
+                    .font(.headline.monospacedDigit())
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14).padding(.horizontal, 14)
@@ -209,9 +247,10 @@ struct PaywallView: View {
                     .stroke(Theme.accent.opacity(0.4), lineWidth: 1)
                     .background(RoundedRectangle(cornerRadius: Theme.cornerRadius, style: .continuous).fill(Color(.tertiarySystemBackground)))
             )
+            .opacity(purchases.lifetimeProduct == nil ? 0.55 : 1)
         }
         .buttonStyle(.plain)
-        .disabled(purchases.isPurchasing)
+        .disabled(purchases.isPurchasing || purchases.lifetimeProduct == nil)
     }
 
     private var restoreButton: some View {
@@ -243,7 +282,7 @@ struct PaywallView: View {
                 Text("• " + PricingConfig.disclosureRenewalCharge)
                 Text("• " + PricingConfig.disclosureManage)
                 Text("• " + PricingConfig.disclosureFreeTrial)
-                Text("• SleepWindow Lifetime is a one-time non-consumable purchase with no recurring charges.")
+                Text("• " + PricingConfig.disclosureLifetimeNonConsumable)
             }
             .font(.caption2).foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)

@@ -60,9 +60,14 @@ enum PricingConfig {
         "Subscriptions may be managed and auto-renewal may be turned off by going to the user's Account Settings after purchase."
     static let disclosureFreeTrial =
         "If you start a free trial, any unused portion is forfeited if you purchase a subscription before the trial ends."
+    static let disclosureLifetimeNonConsumable =
+        "SleepWindow Lifetime is a one-time non-consumable purchase with no recurring charges."
 
-    /// URLs rendered as tappable links in the paywall and ASC metadata.
+    /// URLs rendered as tappable links in the paywall, Settings, and ASC
+    /// metadata. Single source of truth — both `sleepwindow-website` repo
+    /// pages are canonical. The `sleepwindow/` repo pages are deprecated.
     static let privacyPolicyURL = "https://has-deploy.github.io/sleepwindow-website/privacy-policy.html"
+    static let supportURL       = "https://has-deploy.github.io/sleepwindow-website/support.html"
     static let appleStdEULAURL  = "https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
 
     // Free-tier caps.

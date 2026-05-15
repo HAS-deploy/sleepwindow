@@ -8,7 +8,6 @@ struct BedtimeView: View {
     let onGatedTap: (PremiumFeature) -> Void
 
     @State private var wakeTime: Date = defaultWake()
-    @State private var showCaffeineCard: Bool = true
 
     private static func defaultWake() -> Date {
         TimeFormatter.dateByCombining(today: Date(), hour: 7, minute: 0)
