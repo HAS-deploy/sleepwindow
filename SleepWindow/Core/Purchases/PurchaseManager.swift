@@ -26,8 +26,10 @@ final class PurchaseManager: ObservableObject {
     /// uninstall/reinstall starts a fresh trial (Apple-side trial gating
     /// still applies to paid intro offers).
     static let firstLaunchKey = "sleepwindow.firstLaunchAt"
-    /// 14-day install-time trial (matches `PricingConfig.annualTrialDays`).
-    static let installTrialDays: Int = PricingConfig.annualTrialDays
+    /// 14-day local install-time trial. Portfolio SoT for entitlement
+    /// granted from first launch — independent of
+    /// `PricingConfig.annualTrialDays` (legacy ASC yearly intro).
+    static let installTrialDays: Int = 14
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard, now: Date = Date()) {
