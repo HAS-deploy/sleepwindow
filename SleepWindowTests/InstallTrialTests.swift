@@ -27,6 +27,15 @@ final class InstallTrialTests: XCTestCase {
         super.tearDown()
     }
 
+    // MARK: - 0. Install-trial SoT (portfolio policy)
+
+    func testInstallTrialDaysIsFourteen() {
+        // Do not assert PricingConfig.annualTrialDays here — that constant
+        // is the legacy ASC yearly intro, not the local install window.
+        XCTAssertEqual(PurchaseManager.installTrialDays, 14,
+                       "Install-trial SoT is PurchaseManager.installTrialDays == 14.")
+    }
+
     // MARK: - 1. Fresh install grants full Premium for 14 days
 
     func testFreshInstallStampsFirstLaunchAndActivatesTrial() {
@@ -73,8 +82,12 @@ final class InstallTrialTests: XCTestCase {
     // MARK: - 3. After day 14, gate reverts to free-tier behavior
 
     func testTrialExpiresAfter14DaysAndGateLocksDown() {
-        // Stamp firstLaunchAt 20 days ago, then construct the manager.
-        let past = Calendar.current.date(byAdding: .day, value: -20, to: Date())!
+        // One day past the install window — a 10-day stamp is still inside 14d.
+        let past = Calendar.current.date(
+            byAdding: .day,
+            value: -(PurchaseManager.installTrialDays + 1),
+            to: Date()
+        )!
         defaults.set(past, forKey: PurchaseManager.firstLaunchKey)
 
         let now = Date()
@@ -114,8 +127,12 @@ final class InstallTrialTests: XCTestCase {
         XCTAssertEqual(presets.wakePresets.count, 3,
                        "Preconditions: three trial-era presets saved.")
 
-        // Roll the install clock past day 14 and re-open the manager.
-        let past = Calendar.current.date(byAdding: .day, value: -30, to: Date())!
+        // Roll the install clock one day past the window and re-open.
+        let past = Calendar.current.date(
+            byAdding: .day,
+            value: -(PurchaseManager.installTrialDays + 1),
+            to: Date()
+        )!
         defaults.set(past, forKey: PurchaseManager.firstLaunchKey)
         let pm = PurchaseManager(defaults: defaults, now: Date())
         XCTAssertFalse(pm.isEntitled, "Sanity: trial has ended.")
