@@ -47,10 +47,11 @@
 <p>All of your settings and saved presets are stored locally using <code>UserDefaults</code>, a standard iOS mechanism for app preferences. This data never leaves your device. Uninstalling the app deletes it.</p>
 
 <h2>Network activity</h2>
-<p>SleepWindow talks to two destinations over HTTPS:</p>
+<p>SleepWindow talks to three destinations over HTTPS:</p>
 <ul>
   <li>Apple's App Store, for the optional in-app purchases (monthly and yearly subscriptions and a one-time Lifetime unlock) and to verify your entitlement. Apple processes the transaction; we do not see your payment details.</li>
   <li>PostHog (<code>us.i.posthog.com</code>), for the anonymous analytics described above.</li>
+  <li>Apple AdServices (<code>api-adservices.apple.com</code>), once on first launch, for the install attribution described above.</li>
 </ul>
 
 <h2>Notifications</h2>
